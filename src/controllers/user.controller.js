@@ -166,7 +166,7 @@ res
 //___End point for refreshing REFRESHTOKEN____
 const refreshAccessToken= asyncHandler(async(req, res) => {
     const incomingRefreshToken = 
-        req.cookie.refreshToken || req.body.refreshToken
+        req.cookies.refreshToken || req.body.refreshToken
 
     if(!incomingRefreshToken){
         throw new ApiError(401, "Unauthorised Refresh token")
