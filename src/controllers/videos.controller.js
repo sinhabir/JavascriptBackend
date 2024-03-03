@@ -1,6 +1,8 @@
 import mongoose, {isValidObjectId} from "mongoose"
 import {Video} from "../models/video.model.js"
 import {User} from "../models/user.model.js"
+import { Like } from "../models/like.model.js"
+import { Comment } from "../models/comment.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
@@ -266,13 +268,90 @@ res
  // delete video
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    const loggedInUser = req.user?._id
+
+    if(!isValidObjectId){
+        throw new ApiError(401, "Invalid Video Id")
+    }
+
+    //fetch video details based on Video Id
+    const video = await Video.findById(videoId)
+
+    if(!video){
+        throw new ApiError(402, "No Video found")
+    }
+
+    //check if user is authroised to delete this video
+    if(video.owner.toString() !== loggedInUser.toString()){
+        throw new ApiError(402, "You are not authorised to delete this video")
+    }
+
+    //If authorised delete video
+    const deleteVideo = await Video.findByIdAndDelete(video?._id)
+
+    if(!deleteVideo){
+        throw new ApiError(403, "Video cannot be deleted!!")
+    }
+
+    //delete from cloudinary
+    await deleteOnCloudinary(video.thumbnail.public_id)
+    //pass type as "video" as default is "image" on deleteOnCloudinary util
+    await deleteOnCloudinary(video.videoFile.public_id, "video")
+
+    //delete Likes for this video
+    await Like.deleteMany({
+        video: videoId
+    })
+
+    //delete Comments for this video
+    await Comment.deleteMany({
+        video: videoId
+    })
+
+    //send response
+    res.status(200)
+    .json(new ApiResponse(200,{}, "Video deleted succesfully"))
    
 })
 
 //*****************************************************/
-
+//toggle isPublished status
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+
+    if(!isValidObjectId(videoId)){
+        throw ApiError(400, "Invalid Video Id")
+    }
+
+    //fetch video details
+    const video = await Video.findById(videoId)
+
+    if(!video){
+        throw new ApiError(402, "Video not found")
+    }
+
+    // check if user is authorised to make the changes
+    if(video.owner.toString()!== req.user?._id){
+        throw new ApiError(402, "Unauthorised Access!!")
+    }
+
+    //update toggle status
+    const toggleStatus = await Video.findByIdAndUpdate(videoId, {
+        $set:{
+            isPublished: !video?.isPublished
+        }
+    },{new: true})
+
+    if(!toggleStatus){
+        throw new ApiError(402, "Error while updating toggle Status")
+    }
+
+    //send response
+    res.status(200)
+    .json(new ApiResponse(
+        200, {isPublished:toggleStatus.isPublished}, 
+        "Toggle status updated successfully"))
+
 })
 
 export {
