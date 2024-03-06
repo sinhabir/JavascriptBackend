@@ -118,7 +118,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     }
 
     if(req.user?._id.toString() !== subscriberId.toString()){
-        throw ApiError(400, "Not Authorised to get subscribers list")
+        throw ApiError(400, "Not Authorised to get channel list")
     }
 
     const getChannelList = await Subscription.aggregate([
