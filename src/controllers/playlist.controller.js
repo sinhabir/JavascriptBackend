@@ -1,6 +1,7 @@
 import mongoose, {isValidObjectId} from "mongoose"
 import {Playlist} from "../models/playlist.model.js"
 import {ApiError} from "../utils/ApiError.js"
+import {Video} from "../models/video.model.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 
@@ -162,7 +163,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
        }
     ])
 
-    if(!getPlaylist?.length()< 0){
+    if(getPlaylist?.length()< 0){
         throw new ApiError(400, "Details cannot be fetched"  )
     }
 
@@ -173,27 +174,153 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 })
 
 //***********************************************/
+//Add videos to playlist
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
     const {playlistId, videoId} = req.params
+
+    if(!isValidObjectId(playlistId) || !isValidObjectId(videoId)){
+        throw new ApiError(400, "Invalid playlist or video id")
+    }
+
+    const video = await Video.findById(videoId)
+    if(!video){
+        throw new ApiError(400, "Video doesnot exists")
+    }
+
+    const playlist = await Playlist.findById(playlistId)
+    if(!playlist){
+        throw new ApiError(400, "Playlist doesnot exists")
+    }
+
+    //check the owner of the playlist
+    if(req.user?._id.toString() !== playlist.owner.toString()){
+        throw new ApiError(400, "You are not the owner to add playlist")
+    }
+
+    const addVideo = await Playlist.findByIdAndUpdate(playlistId,
+        {
+        $addToSet:{
+            videos: videoId
+        }
+    },{new: true})
+
+    if(!addVideo){
+        throw new ApiError(500, "Video cannot be added to Playlist ")
+    }
+     return res.status(200)
+     .json(new ApiResponse
+        (200, addVideo, "Video added to playlist succesfully"))
 })
 
 //***********************************************/
+// Remove video from playlist
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     const {playlistId, videoId} = req.params
-    // TODO: remove video from playlist
+
+    if(!isValidObjectId(playlistId) || !isValidObjectId(videoId)){
+        throw new ApiError(400, "Invalid playlist or video id")
+    }
+    const video = await Video.findById(videoId)
+    if(!video){
+        throw new ApiError(400, "Video doesnot exists")
+    }
+
+    const playlist = await Playlist.findById(playlistId)
+    if(!playlist){
+        throw new ApiError(400, "Playlist doesnot exists")
+    }
+
+    //check the owner of the playlist
+    if(req.user?._id.toString() !== playlist.owner.toString()){
+        throw new ApiError(
+            400, "You are not the owner to remove from playlist")
+    }
+
+    const deleteVideo =  await Playlist.findByIdAndUpdate(playlistId,
+        {
+            $pull:{
+                videos: videoId
+            }
+        },{new: true}
+    )
+
+    if(!deleteVideo){
+        throw new ApiError(500, "Video cannot be deleted from playlist")
+    }
+
+    return res.status(200).
+    json(new ApiResponse(200, deleteVideo, "Video deleted from playlist succesfully"))
 
 })
 
 //***********************************************/
+ // Delete playlist
 const deletePlaylist = asyncHandler(async (req, res) => {
     const {playlistId} = req.params
-    // TODO: delete playlist
+
+    if(!isValidObjectId(playlistId)){
+        throw new ApiError(400, "invalid playlist Id")
+    }
+
+    const playlist = await Playlist.findById(playlistId)
+
+    if(!playlist){
+        throw new ApiError(400, "Playlist doesnot exists")
+    }
+
+    if(req.user?._id.toString() !== playlist.owner.toString()){
+        throw new ApiError(
+            400, "You are not the owner to delete the playlist")
+    }
+
+    await Playlist.findByIdAndDelete(playlistId)
+
+    return res.status(200)
+        .json(new ApiResponse(200, {}, "Playlist deleted succesfully"))
+   
 })
 
+//***********************************************/
+//Update playlist
 const updatePlaylist = asyncHandler(async (req, res) => {
     const {playlistId} = req.params
     const {name, description} = req.body
-    //TODO: update playlist
+
+    if(!(name && description)){
+        throw new ApiError(400, "Name and description both are required")
+    }
+
+    if(!isValidObjectId(playlistId)){
+        throw new ApiError(400, "Invalid Playlist Id")
+    }
+
+    const playlist = await Playlist.findById(playlistId)
+
+    if(!playlist){
+        throw new ApiError(400, "Playlist doesnot exists")
+    }
+
+    if(playlist.owner.toString() !== req.user?._id.toString()){
+        throw new ApiError(
+            400, "You are not the owner to update the playlist")
+    }
+    const updatePlaylist = await Playlist.findByIdAndUpdate(
+        playlistId,
+        {
+            $set:{
+                name,
+                description
+            }
+        },{new:true}
+    ) 
+
+    if(!updatePlaylist){
+        throw new ApiError(500, "Playlist cannot be updated")
+    }
+
+    return res.status(200)
+        .json(200, updatePlaylist, "Playlist updated succesfully")
+
 })
 
 export {
