@@ -24,7 +24,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
         const unsubsribe =  
             await Subscription.findByIdAndDelete(isSubscribed?._id)
             if(!unsubsribe){
-                throw ApiError(500, "Unsubscribing unsuccessful!!")
+                throw new ApiError(500, "Unsubscribing unsuccessful!!")
             }
             return res.status(200)
             .json(new ApiResponse
@@ -38,7 +38,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
     })
 
     if(!toSubscribe){
-        throw ApiError(500, "Error while subscribing")
+        throw new ApiError(500, "Error while subscribing")
     }
 
     return res.status(200)
@@ -53,11 +53,11 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     const {channelId} = req.params
 
     if(!isValidObjectId(channelId)){
-        throw ApiError(400, "Invalid Channel Id")
+        throw new ApiError(400, "Invalid Channel Id")
     }
 
     if(req.user?._id.toString() !== channelId.toString()){
-        throw ApiError(400, "Not Authorised to get subscribers list")
+        throw new ApiError(400, "Not Authorised to get subscribers list")
     }
 
     const getSubscribersList = await Subscription.aggregate([
@@ -114,11 +114,11 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     const { subscriberId } = req.params
 
     if(!isValidObjectId(subscriberId)){
-        throw ApiError(400, "Invalid Subscriber Id")
+        throw new ApiError(400, "Invalid Subscriber Id")
     }
 
     if(req.user?._id.toString() !== subscriberId.toString()){
-        throw ApiError(400, "Not Authorised to get channel list")
+        throw new ApiError(400, "Not Authorised to get channel list")
     }
 
     const getChannelList = await Subscription.aggregate([
